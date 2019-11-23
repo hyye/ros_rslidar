@@ -21,6 +21,24 @@
 
 namespace rslidar_rawdata
 {
+
+void calcVertIdx(int num_ring) {
+  std::vector<std::pair<int, int>> vp;
+  for (int loopn = 0; loopn < num_ring; ++loopn)
+  {
+    vp.emplace_back(VERT_ANGLE[loopn], loopn);
+  }
+  std::sort(vp.begin(), vp.end());
+  for (int loopn = 0; loopn < num_ring; ++loopn) {
+    VERT_IDX[vp[loopn].second] = loopn;
+  }
+
+  // DEBUG
+  // for (int loopn = 0; loopn < num_ring; ++loopn) {
+  //   std::cout << loopn << " " << VERT_IDX[loopn] << " " << VERT_ANGLE[loopn] << std::endl;
+  // }
+}
+
 RawData::RawData()
 {
   this->is_init_angle_ = false;
@@ -220,6 +238,8 @@ void RawData::loadConfigFile(ros::NodeHandle node, ros::NodeHandle private_nh)
       VERT_ANGLE[loopn] = b[loopn] * 100;
       HORI_ANGLE[loopn] = d[loopn] * 100;
     }
+
+    calcVertIdx(numOfLasers);
 
     if (numOfLasers == 16)
     {
@@ -510,6 +530,8 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
             HORI_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.001f * 100;
           }
         }
+
+        calcVertIdx(32);
 
         this->is_init_angle_ = true;
         ROS_INFO_STREAM("[cloud][rawdata] angle data is wrote in difop packet!");
@@ -810,7 +832,7 @@ int RawData::estimateTemperature(float Temper)
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud)
+void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<RSPoint>::Ptr pointcloud)
 {
   // check pkt header
   if (pkt.data[0] != 0x55 || pkt.data[1] != 0xAA || pkt.data[2] != 0x05 || pkt.data[3] != 0x0A)
@@ -907,7 +929,7 @@ void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl
         int arg_horiz_orginal = arg_horiz;
         int arg_vert = ((VERT_ANGLE[dsr]) % 36000 + 36000) % 36000;
 
-        pcl::PointXYZI point;
+        RSPoint point;
 
         if (distance2 > max_distance_ || distance2 < min_distance_ ||
             (angle_flag_ && (arg_horiz < start_angle_ || arg_horiz > end_angle_)) ||
@@ -936,7 +958,7 @@ void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl
   }
 }
 
-void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud)
+void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<RSPoint>::Ptr pointcloud)
 {
   float azimuth;  // 0.01 dgree
   float intensity;
@@ -1027,7 +1049,8 @@ void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointClou
         int arg_horiz_orginal = (int)azimuth_corrected_f % 36000;
         int arg_horiz = azimuth_corrected;
         int arg_vert = ((VERT_ANGLE[dsr]) % 36000 + 36000) % 36000;
-        pcl::PointXYZI point;
+        uint16_t ring = VERT_IDX[dsr];
+        RSPoint point;
 
         if (distance2 > max_distance_ || distance2 < min_distance_ ||
             (angle_flag_ && (arg_horiz < start_angle_ || arg_horiz > end_angle_)) ||
@@ -1037,6 +1060,7 @@ void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointClou
           point.y = NAN;
           point.z = NAN;
           point.intensity = 0;
+          point.ring = 0;
           pointcloud->at(this->block_num, dsr) = point;
         }
         else
@@ -1048,6 +1072,7 @@ void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointClou
                     Rx_ * this->sin_lookup_table_[arg_horiz_orginal];
           point.z = distance2 * this->sin_lookup_table_[arg_vert] + Rz_;
           point.intensity = intensity;
+          point.ring = ring;
           pointcloud->at(this->block_num, dsr) = point;
         }
       }
@@ -1106,7 +1131,7 @@ void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointClou
         int arg_horiz = azimuth_corrected;
         int arg_vert = ((VERT_ANGLE[dsr]) % 36000 + 36000) % 36000;
 
-        pcl::PointXYZI point;
+        RSPoint point;
 
         if (distance2 > max_distance_ || distance2 < min_distance_ ||
             (angle_flag_ && (arg_horiz < start_angle_ || arg_horiz > end_angle_)) ||

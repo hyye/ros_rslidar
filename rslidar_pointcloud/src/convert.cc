@@ -52,7 +52,7 @@ void Convert::callback(rslidar_pointcloud::CloudNodeConfig& config, uint32_t lev
 /** @brief Callback for raw scan messages. */
 void Convert::processScan(const rslidar_msgs::rslidarScan::ConstPtr& scanMsg)
 {
-  pcl::PointCloud<pcl::PointXYZI>::Ptr outPoints(new pcl::PointCloud<pcl::PointXYZI>);
+  pcl::PointCloud<RSPoint>::Ptr outPoints(new pcl::PointCloud<RSPoint>);
   outPoints->header.stamp = pcl_conversions::toPCL(scanMsg->header).stamp;
   outPoints->header.frame_id = scanMsg->header.frame_id;
   outPoints->clear();
