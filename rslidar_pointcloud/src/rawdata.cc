@@ -60,6 +60,8 @@ void RawData::loadConfigFile(ros::NodeHandle node, ros::NodeHandle private_nh)
   private_nh.param("start_angle", start_angle_, int(0));
   private_nh.param("end_angle", end_angle_, int(360));
 
+  model_ = model;
+
   ROS_INFO_STREAM("[cloud][rawdata] lidar model: " << model);
   if (start_angle_ < 0 || start_angle_ > 360 || end_angle_ < 0 || end_angle_ > 360)
   {
@@ -507,6 +509,10 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
         }
         else if (numOfLasers == 32)
         {
+          float angle_factor = 0.001f;
+          if (model_ == "RSBPEARL") {
+            angle_factor = 0.01f;
+          }
           for (int loopn = 0; loopn < 32; ++loopn)
           {
             // vertical angle
@@ -517,7 +523,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
               symbolbit = -1;
             bit2 = static_cast<int>(*(data + 468 + loopn * 3 + 1));
             bit3 = static_cast<int>(*(data + 468 + loopn * 3 + 2));
-            VERT_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.001f * 100;
+            VERT_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * angle_factor * 100;
 
             // horizontal offset angle
             bit1 = static_cast<int>(*(data + 564 + loopn * 3));
@@ -527,7 +533,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
               symbolbit = -1;
             bit2 = static_cast<int>(*(data + 564 + loopn * 3 + 1));
             bit3 = static_cast<int>(*(data + 564 + loopn * 3 + 2));
-            HORI_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.001f * 100;
+            HORI_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * angle_factor * 100;
           }
         }
 

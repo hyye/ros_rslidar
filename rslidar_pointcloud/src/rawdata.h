@@ -189,6 +189,8 @@ private:
   /* cos/sin lookup table */
   std::vector<double> cos_lookup_table_;
   std::vector<double> sin_lookup_table_;
+
+  std::string model_;
 };
 
 static int VERT_IDX[32];
