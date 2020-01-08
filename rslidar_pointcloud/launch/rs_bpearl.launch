@@ -25,6 +25,11 @@
     <param name="intensity_mode" value="3"/>
   </node>
 
+  <node name="ring_filter" pkg="rslidar_pointcloud" type="ring_filter" output="screen" >
+    <remap from="/raw_points" to="/rslidar_points" />
+    <param name="ring_to_filter" value="18"/>
+  </node>
+
   <node name="rviz" pkg="rviz" type="rviz"  args="-d $(find rslidar_pointcloud)/rviz_cfg/rslidar.rviz" />
 
 </launch>

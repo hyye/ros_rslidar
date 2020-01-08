@@ -23,3 +23,8 @@ target_link_libraries(cloud_node
     rslidar_point
     ${catkin_LIBRARIES}
     ${libpcap_LIBRARIES})
+
+add_executable(ring_filter ring_filter.cc)
+target_link_libraries(ring_filter
+    ${catkin_LIBRARIES}
+)
