@@ -60,8 +60,6 @@ void RawData::loadConfigFile(ros::NodeHandle node, ros::NodeHandle private_nh)
   private_nh.param("start_angle", start_angle_, int(0));
   private_nh.param("end_angle", end_angle_, int(360));
 
-  model_ = model;
-
   ROS_INFO_STREAM("[cloud][rawdata] lidar model: " << model);
   if (start_angle_ < 0 || start_angle_ > 360 || end_angle_ < 0 || end_angle_ > 360)
   {
@@ -123,6 +121,7 @@ void RawData::loadConfigFile(ros::NodeHandle node, ros::NodeHandle private_nh)
     Rx_ = 0.03997;
     Ry_ = -0.01087;
     Rz_ = 0;
+    isBpearlLidar_ = false;
   }
   else if(model == "RSBPEARL")
   {
@@ -131,6 +130,16 @@ void RawData::loadConfigFile(ros::NodeHandle node, ros::NodeHandle private_nh)
     Rx_ = 0.01697;
     Ry_ = -0.0085;
     Rz_ = 0.12644;
+    isBpearlLidar_ = true;
+  }
+  else if (model == "RSBPEARL_MINI")
+  {
+    numOfLasers = 32;
+    TEMPERATURE_RANGE = 50;
+    Rx_ = 0.01473;
+    Ry_ = 0.0085;
+    Rz_ = 0.09427;
+    isBpearlLidar_ = true;
   }
   else
   {
@@ -509,10 +518,6 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
         }
         else if (numOfLasers == 32)
         {
-          float angle_factor = 0.001f;
-          if (model_ == "RSBPEARL") {
-            angle_factor = 0.01f;
-          }
           for (int loopn = 0; loopn < 32; ++loopn)
           {
             // vertical angle
@@ -523,8 +528,10 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
               symbolbit = -1;
             bit2 = static_cast<int>(*(data + 468 + loopn * 3 + 1));
             bit3 = static_cast<int>(*(data + 468 + loopn * 3 + 2));
-            VERT_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * angle_factor * 100;
-
+            if (isBpearlLidar_)
+              VERT_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.01f * 100;
+            else
+              VERT_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.001f * 100;
             // horizontal offset angle
             bit1 = static_cast<int>(*(data + 564 + loopn * 3));
             if (bit1 == 0)
@@ -533,7 +540,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
               symbolbit = -1;
             bit2 = static_cast<int>(*(data + 564 + loopn * 3 + 1));
             bit3 = static_cast<int>(*(data + 564 + loopn * 3 + 2));
-            HORI_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * angle_factor * 100;
+            HORI_ANGLE[loopn] = (bit2 * 256 + bit3) * symbolbit * 0.001f * 100;
           }
         }
 
@@ -580,6 +587,8 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
         ROS_INFO_STREAM("[cloud][rawdata] lidar support dual return wave, the current mode is: last");
       }
     }
+
+    ROS_INFO_STREAM("[cloud][rawdata] difop intensity mode: "<<intensity_mode_);
   }
 }
 
@@ -610,7 +619,7 @@ int RawData::correctAzimuth(float azimuth_f, int passageway)
     azimuth_f = azimuth_f + HORI_ANGLE[passageway];
   }
   azimuth = (int)azimuth_f;
-  azimuth %= 36000;
+  azimuth = ((azimuth%36000)+36000)%36000;
 
   return azimuth;
 }
@@ -879,20 +888,26 @@ void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<RSP
 
     azimuth = (float)(256 * raw->blocks[block].rotation_1 + raw->blocks[block].rotation_2);
 
+    int azi1, azi2;
     if (block < (BLOCKS_PER_PACKET - 1))  // 12
     {
-      int azi1, azi2;
+      // int azi1, azi2;
       azi1 = 256 * raw->blocks[block + 1].rotation_1 + raw->blocks[block + 1].rotation_2;
       azi2 = 256 * raw->blocks[block].rotation_1 + raw->blocks[block].rotation_2;
-      azimuth_diff = (float)((36000 + azi1 - azi2) % 36000);
     }
     else
     {
-      int azi1, azi2;
+      
       azi1 = 256 * raw->blocks[block].rotation_1 + raw->blocks[block].rotation_2;
       azi2 = 256 * raw->blocks[block - 1].rotation_1 + raw->blocks[block - 1].rotation_2;
-      azimuth_diff = (float)((36000 + azi1 - azi2) % 36000);
+      
     }
+    uint16_t diff = (36000 + azi1 - azi2) % 36000;
+    if (diff > 100)  //to avoid when the lidar is set to specific FOV that cause the big difference between angle
+    {
+      diff = 0;
+    }
+    azimuth_diff = (float)(diff);
 
     for (int firing = 0, k = 0; firing < RS16_FIRINGS_PER_BLOCK; firing++)  // 2
     {
@@ -1022,7 +1037,12 @@ void RawData::unpack_RS32(const rslidar_msgs::rslidarPacket& pkt, pcl::PointClou
         azi2 = 256 * raw->blocks[block - 1].rotation_1 + raw->blocks[block - 1].rotation_2;
       }
     }
-    azimuth_diff = (float)((36000 + azi1 - azi2) % 36000);
+    uint16_t diff = (36000 + azi1 - azi2) % 36000;
+    if (diff > 100)  //to avoid when the lidar is set to specific FOV that cause the big difference between angle
+    {
+      diff = 0;
+    }
+    azimuth_diff = (float)(diff);
 
     if (dis_resolution_mode_ == 0)  // distance resolution is 0.5cm and delete the AB packet mechanism
     {

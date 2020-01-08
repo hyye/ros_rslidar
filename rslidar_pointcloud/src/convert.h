@@ -24,7 +24,6 @@
 
 namespace rslidar_pointcloud
 {
-
 class Convert
 {
 public:

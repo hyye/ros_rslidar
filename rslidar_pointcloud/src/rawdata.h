@@ -177,7 +177,6 @@ private:
   float Rx_;  // the optical center position in the lidar coordination in x direction
   float Ry_;  // the optical center position in the lidar coordination in y direction, for now not used
   float Rz_;  // the optical center position in the lidar coordination in z direction
-  bool angle_flag_;
   int start_angle_;
   int end_angle_;
   float max_distance_;
@@ -185,12 +184,12 @@ private:
   int dis_resolution_mode_;
   int return_mode_;
   bool info_print_flag_;
+  bool isBpearlLidar_;
+  bool angle_flag_;
 
   /* cos/sin lookup table */
   std::vector<double> cos_lookup_table_;
   std::vector<double> sin_lookup_table_;
-
-  std::string model_;
 };
 
 static int VERT_IDX[32];
