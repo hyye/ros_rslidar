@@ -351,6 +351,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
     return;
   }
 
+  // uint8_t save_return_mode = return_mode_;
   // return mode check
   if ((data[45] == 0x08 && data[46] == 0x02 && data[47] >= 0x09) || (data[45] > 0x08) ||
       (data[45] == 0x08 && data[46] > 0x02))
@@ -465,6 +466,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
     {
       intensity_mode_ = 3;  // mode for the top firmware higher than T6R23V9
     }
+    
   }
 
   if (!this->is_init_angle_)
